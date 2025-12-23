@@ -6,6 +6,7 @@ output-*/
 packer_cache/
 seeds-*.iso
 *.log
+OVMF_*.fd
 
 # Packer crash logs
 crash.log
