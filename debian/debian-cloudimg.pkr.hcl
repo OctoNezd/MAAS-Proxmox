@@ -86,7 +86,7 @@ build {
   provisioner "shell" {
     environment_vars    = concat(local.proxy_env, ["DEBIAN_FRONTEND=noninteractive", "INSTALL_PROXMOX=${var.install_proxmox}"])
     expect_disconnect   = true
-    scripts             = ["${path.root}/scripts/conditional-proxmox.sh"]
+    scripts             = ["${path.root}/scripts/install-proxmox.sh"]
     pause_before        = "10s"
   }
 

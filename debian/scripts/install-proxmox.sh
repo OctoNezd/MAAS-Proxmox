@@ -11,6 +11,12 @@
 # published by the Free Software Foundation, either version 3 of the
 # License, or (at your option) any later version.
 
+# Only run if INSTALL_PROXMOX is set to "true"
+if [ "${INSTALL_PROXMOX}" != "true" ]; then
+    echo "Skipping Proxmox installation (INSTALL_PROXMOX != true)"
+    exit 0
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 
 packer_apt_proxy_config="/etc/apt/apt.conf.d/packer-proxy.conf"
