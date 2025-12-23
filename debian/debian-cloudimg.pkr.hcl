@@ -84,10 +84,9 @@ build {
   }
 
   provisioner "shell" {
-    only                = var.install_proxmox ? ["cloudimg.image.qemu.cloudimg"] : []
-    environment_vars    = concat(local.proxy_env, ["DEBIAN_FRONTEND=noninteractive"])
+    environment_vars    = concat(local.proxy_env, ["DEBIAN_FRONTEND=noninteractive", "INSTALL_PROXMOX=${var.install_proxmox}"])
     expect_disconnect   = true
-    scripts             = ["${path.root}/scripts/install-proxmox.sh"]
+    scripts             = ["${path.root}/scripts/conditional-proxmox.sh"]
     pause_before        = "10s"
   }
 
