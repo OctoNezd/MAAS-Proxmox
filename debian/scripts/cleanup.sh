@@ -31,3 +31,8 @@ rm -r /etc/ssh/ssh_host_*
 # Remove /etc/hostname so MAAS can set it during deployment
 # Proxmox installation creates this file, but it must not exist in the image
 rm -f /etc/hostname
+
+# Clean cloud-init state so it runs fresh on MAAS deployment
+# This must run AFTER Proxmox installation since Proxmox packages may trigger cloud-init
+echo "Cleaning cloud-init state..."
+cloud-init clean --logs --machine-id --seed
