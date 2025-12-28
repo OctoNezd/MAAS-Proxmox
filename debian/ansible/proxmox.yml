@@ -1,0 +1,85 @@
+---
+- hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    # CRITICAL: Configure /etc/hosts BEFORE installing Proxmox
+    # Proxmox requires hostname to resolve to a non-loopback IP
+    - name: Get default IPv4 address
+      set_fact:
+        pve_ip: "{{ ansible_default_ipv4.address }}"
+        pve_hostname: "{{ ansible_hostname }}"
+        pve_fqdn: "{{ ansible_fqdn }}"
+
+    - name: Configure /etc/hosts for Proxmox installation
+      lineinfile:
+        dest: /etc/hosts
+        # Remove any existing entries for this hostname/fqdn
+        regexp: "^\\s*[0-9a-f:.]+\\s+(.*\\s)?({{ pve_fqdn | regex_escape() }}|{{ pve_hostname | regex_escape() }})(\\s+.*|\\s*)$"
+        line: "{{ pve_ip }} {{ pve_fqdn }} {{ pve_hostname }}"
+        backup: yes
+      when: pve_ip is defined
+
+    - name: Proxmox deb822 repo
+      deb822_repository:
+        name: proxmox
+        types: deb
+        uris: http://download.proxmox.com/debian/pve
+        suites: trixie
+        components: pve-no-subscription
+        architectures: amd64
+        signed_by: https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg
+
+    - name: Update package cache
+      apt:
+        update_cache: true
+
+    # Preconfigure postfix to avoid interactive prompts during installation
+    - name: Preconfigure postfix (no configuration)
+      debconf:
+        name: postfix
+        question: postfix/main_mailer_type
+        value: "No configuration"
+        vtype: select
+
+    - name: Preconfigure postfix mailname
+      debconf:
+        name: postfix
+        question: postfix/mailname
+        value: "{{ pve_fqdn }}"
+        vtype: string
+
+    # Install Proxmox kernel first
+    - name: Install Proxmox kernel
+      apt:
+        name: proxmox-default-kernel
+        state: present
+
+    - name: Install Proxmox VE and dependencies
+      apt:
+        name:
+          - proxmox-ve
+          - postfix
+          - open-iscsi
+          - chrony
+          - cloud-init
+          - netplan.io
+          - grub-cloud-amd64
+          - grub-efi-amd64
+        state: present
+
+    # Remove os-prober (not needed for hypervisor)
+    - name: Remove os-prober
+      apt:
+        name: os-prober
+        state: absent
+
+    # Remove standard Debian kernel (keep only Proxmox kernel)
+    - name: Remove standard Debian kernel
+      apt:
+        name:
+          - "linux-image-amd64"
+          - "linux-image-6.12*"
+        state: absent
+        autoremove: yes
+      ignore_errors: yes

@@ -83,9 +83,18 @@ build {
     scripts           = [var.customize_script]
   }
 
+  # Install Ansible for local provisioning
   provisioner "shell" {
-    environment_vars = concat(local.proxy_env, ["DEBIAN_FRONTEND=noninteractive", "INSTALL_PROXMOX=${var.install_proxmox}"])
-    scripts          = ["${path.root}/scripts/install-proxmox.sh"]
+    inline = [
+      "apt-get update",
+      "apt-get install -y ansible python3-apt"
+    ]
+  }
+
+  # Install Proxmox VE using Ansible
+  provisioner "ansible-local" {
+    playbook_file = "${path.root}/ansible/proxmox.yml"
+    extra_arguments = ["--extra-vars", "ansible_python_interpreter=/usr/bin/python3"]
   }
 
   provisioner "shell" {
