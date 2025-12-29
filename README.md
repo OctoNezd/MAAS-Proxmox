@@ -98,57 +98,50 @@ sudo systemctl restart snap.maas.supervisor
 
 ## Building Proxmox VE Images (proxmox branch)
 
-To build a Debian 13 image with Proxmox VE 9.1 pre-installed:
+Build a Debian 13 image with Proxmox VE 9.1 pre-installed:
 
 ```bash
-# Switch to proxmox branch
 git checkout proxmox
-
-# Build Proxmox image
 cd debian
-sg kvm -c "make proxmox SERIES=trixie"
+
+# Install packer ansible plugin
+packer plugins install github.com/hashicorp/ansible
+
+# Build image
+sg kvm -c "packer build -var 'debian_series=trixie' -var 'debian_version=13' -var 'filename=proxmox-ve-91-cloudimg.tar.gz' ."
 ```
 
-This will create `proxmox-ve-13-cloudimg.tar.gz` (approximately 2.5GB).
+Output: `proxmox-ve-91-cloudimg.tar.gz` (~2.4GB) | Build time: ~30-40 minutes
 
-**Build time**: ~25-35 minutes (longer than vanilla due to Proxmox installation).
+### What's Included
 
-### What Gets Installed
+- Proxmox VE 9.1 (pve-no-subscription repository)
+- Proxmox kernel (Debian kernel removed)
+- Cloud-init configuration for MAAS compatibility
+- Automatic /etc/hosts fix for Proxmox cluster filesystem
+- All services start automatically on deployment
 
-The Proxmox build includes:
-- Proxmox VE 9.1 (latest packages from pve-no-subscription repository)
-- Proxmox kernel (replaces standard Debian kernel)
-- Required services: postfix, open-iscsi, chrony
-- Web interface accessible at `https://<machine-ip>:8006`
-
-### Upload Proxmox Image to MAAS
+### Upload to MAAS
 
 ```bash
-# Copy tarball to MAAS server
-scp proxmox-ve-13-cloudimg.tar.gz ubuntu@<MAAS_IP>:/home/ubuntu/proxmox-ve-9.1.tar.gz
+# Copy to MAAS server
+scp proxmox-ve-91-cloudimg.tar.gz ubuntu@<MAAS_IP>:/home/ubuntu/
 
-# SSH to MAAS server and upload the image
+# Upload to MAAS
 ssh ubuntu@<MAAS_IP>
-
 maas admin boot-resources create \
   name='custom/proxmox-ve-9.1' \
   title='Proxmox VE 9.1 (Debian 13)' \
   architecture='amd64/generic' \
   filetype='tgz' \
-  content@=/home/ubuntu/proxmox-ve-9.1.tar.gz
+  content@=/home/ubuntu/proxmox-ve-91-cloudimg.tar.gz
 ```
 
 ### Post-Deployment
 
-After deploying a Proxmox image:
+Web UI available immediately at `https://<machine-ip>:8006` (login: root@pam)
 
-1. Access web interface: `https://<machine-ip>:8006`
-2. Login as `root` with the password configured via MAAS
-3. Create network bridge `vmbr0` for VM networking
-4. Configure storage pools as needed
-5. Upload or add a subscription key (or continue with no-subscription repository)
-
-**Note**: The pve-no-subscription repository is used by default. For production use, consider purchasing a Proxmox subscription and updating the repository configuration.
+All Proxmox services (pve-cluster, pveproxy, pvedaemon, pvestatd) start automatically.
 
 ## Build Options
 
@@ -184,23 +177,22 @@ Note: UEFI and BIOS images must be built separately for Debian 12+.
 MAAS-Proxmox/
 ├── README.md                           # This file
 └── debian/
-    ├── Makefile                        # Build automation
     ├── debian-cloudimg.pkr.hcl        # Main Packer configuration
     ├── debian-cloudimg.variables.pkr.hcl
     ├── variables.pkr.hcl
     ├── meta-data                       # Cloud-init metadata
     ├── user-data-cloudimg             # Cloud-init user data
+    ├── ansible/
+    │   └── proxmox.yml                # Install Proxmox VE (proxmox branch)
     ├── scripts/
     │   ├── essential-packages.sh      # Install base packages
     │   ├── setup-boot.sh              # Configure bootloader
     │   ├── networking.sh              # Network configuration
-    │   ├── install-proxmox.sh         # Install Proxmox VE (proxmox branch)
     │   ├── install-custom-kernel.sh   # Optional kernel install
     │   ├── setup-curtin.sh            # MAAS integration
     │   └── cleanup.sh                 # Image cleanup
-    ├── preseed/
-    │   └── curtin_userdata_custom_amd64  # MAAS preseed for Debian
-    └── ORIGINAL-README.md             # Canonical's packer-maas docs
+    └── preseed/
+        └── curtin_userdata_custom_amd64  # MAAS preseed for Debian
 ```
 
 ## Troubleshooting
