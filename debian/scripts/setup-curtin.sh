@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 #
-# cloud-img-setup-curtin.sh - Set up curtin curthooks, if needed.
+# cloud-img-setup-curtin.sh - Set up curtin curthooks
 #
 # Copyright (C) 2022 Canonical
 #
@@ -17,15 +17,22 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-if  [[ ! -f  "/curtin/CUSTOM_KERNEL" ]]; then
-  echo "Skipping curtin setup, since no custom kernel is used."
-  exit 0
-fi
-
-echo "Configuring curtin to install custom kernel"
+echo "Setting up curtin hooks for MAAS deployment"
 
 mkdir -p /curtin
 
+# Copy curtin-hooks (handles custom kernel AND Proxmox network configuration)
 FILENAME=curtin-hooks
-mv "/tmp/${FILENAME}" /curtin/
-chmod 750 "/curtin/${FILENAME}"
+if [ -f "/tmp/${FILENAME}" ]; then
+    mv "/tmp/${FILENAME}" /curtin/
+    chmod 750 "/curtin/${FILENAME}"
+    echo "Installed curtin-hooks"
+else
+    echo "WARNING: /tmp/${FILENAME} not found!"
+    exit 1
+fi
+
+# Copy CUSTOM_KERNEL file if it exists (for custom kernel support)
+if [ -f "/curtin/CUSTOM_KERNEL" ]; then
+    echo "Custom kernel configuration detected"
+fi
