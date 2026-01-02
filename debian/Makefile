@@ -6,7 +6,7 @@ PACKER ?= packer
 PACKER_LOG ?= 0
 export PACKER_LOG
 
-SERIES ?= bullseye
+SERIES ?= trixie
 BOOT ?= uefi
 ARCH ?= amd64
 TIMEOUT ?= 1h
