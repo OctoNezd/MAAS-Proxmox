@@ -78,8 +78,17 @@ Replace `admin` with your MAAS profile name.
 
 1. MAAS web UI → Select machine → Deploy
 2. Choose "Proxmox VE 9.1"
-3. Proxmox web UI available at `https://<machine-ip>:8006`
-4. Login: root@pam (password set via SSH key)
+3. After deployment completes, SSH to the machine and set root password:
+   ```bash
+   ssh debian@<machine-ip>
+   sudo passwd root
+   # Or use a one-liner:
+   echo "root:proxmox" | sudo chpasswd
+   ```
+4. Access Proxmox web UI at `https://<machine-ip>:8006`
+5. Login: root@pam (use the password you just set)
+
+**Note**: The image does not include a default root password for security. You must set it via SSH after deployment to access the web UI.
 
 **Requirements**:
 - UEFI boot enabled
