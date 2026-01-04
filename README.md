@@ -97,12 +97,11 @@ scp proxmox-ve-13-cloudimg.tar.gz ubuntu@<MAAS_IP>:/home/ubuntu/
 
 # SSH to MAAS server and register the image
 ssh ubuntu@<MAAS_IP>
-sudo cp /home/ubuntu/proxmox-ve-13-cloudimg.tar.gz /var/snap/maas/common/
 sudo maas admin boot-resources create \
   name='custom/proxmox-ve-9.1' \
   architecture='amd64/generic' \
   filetype='tgz' \
-  content@=/var/snap/maas/common/proxmox-ve-13-cloudimg.tar.gz
+  content@=/home/ubuntu/proxmox-ve-13-cloudimg.tar.gz
 ```
 
 Replace `admin` with your MAAS profile name.
