@@ -209,6 +209,54 @@ iface vmbr0 inet static
 - systemd-networkd disabled (uses ifupdown2)
 - All configurations bridge to vmbr0 for VM networking
 
+## Storage Configuration
+
+The image supports multiple MAAS storage layouts. The curtin-hooks script automatically handles the storage configuration provided by MAAS during deployment.
+
+### Tested Storage Layouts
+
+**✅ Flat Layout (Default)**
+- Single ext4 root partition spanning the entire boot disk
+- EFI System Partition (ESP) for UEFI boot
+- Simple, no overhead, recommended for most deployments
+- Proxmox uses directory storage at `/var/lib/vz` for VMs and containers
+
+**✅ LVM Layout**
+- Volume Group: `vgroot` on boot disk partition
+- Logical Volume: `lvroot` for root filesystem (ext4)
+- Provides flexibility for snapshots and resizing
+- Proxmox uses directory storage on the LVM root filesystem
+- Configure in MAAS before deployment:
+  ```bash
+  maas $PROFILE machine set-storage-layout $SYSTEM_ID storage_layout=lvm
+  ```
+
+### Storage Layout Comparison
+
+| Layout | Filesystem | Flexibility | Snapshots | VM Storage | Best For |
+|--------|-----------|-------------|-----------|------------|----------|
+| **Flat** | ext4 on partition | Low | No | Directory on / | Simple deployments, maximum performance |
+| **LVM** | ext4 on LV | High | Yes (manual) | Directory on / | Advanced users, future flexibility |
+
+### Storage After Deployment
+
+After deployment, Proxmox VE provides:
+- **local**: Directory storage at `/var/lib/vz` (ISOs, templates, backups, containers)
+- **local-lvm**: Not configured by default (can be added manually for LVM-thin storage)
+
+**Note**: The default MAAS LVM layout creates a single logical volume for the root filesystem. This differs from a standard Proxmox installation which creates separate LVs for root, data (thin pool), and swap. Both configurations work - Proxmox can store VMs on directory storage.
+
+### Untested Storage Layouts
+
+The following MAAS storage layouts have not been tested yet:
+- LVM-Thin
+- Bcache
+- ZFS
+- Software RAID (0, 1, 5, 6, 10)
+- Multiple disk configurations
+
+Contributions and testing reports for these layouts are welcome!
+
 ## Project Structure
 
 ```
