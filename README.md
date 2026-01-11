@@ -4,6 +4,19 @@ Build Proxmox VE 9.1 images for automated MAAS deployment on bare metal.
 
 Based on Debian 13 (Trixie) with cloud-init integration for seamless MAAS provisioning. All Proxmox services start automatically after deployment.
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Network Configuration](#network-configuration)
+- [Storage Configuration](#storage-configuration)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Configuration](#advanced-configuration)
+- [References](#references)
+- [License](#license)
+- [Contributing](#contributing)
+
 ## Prerequisites
 
 ### Build Machine
@@ -159,7 +172,8 @@ The image supports all MAAS network configurations:
 - MAAS-created bridges automatically detected
 - Nested bridge configurations supported
 
-### Network Configuration Examples
+<details>
+<summary><h3>Network Configuration Examples</h3></summary>
 
 **Bond with active-backup** (recommended for virtual environments):
 ```
@@ -209,6 +223,8 @@ iface vmbr0 inet static
 - systemd-networkd disabled (uses ifupdown2)
 - All configurations bridge to vmbr0 for VM networking
 
+</details>
+
 ## Storage Configuration
 
 The image supports multiple MAAS storage layouts. The curtin-hooks script automatically handles the storage configuration provided by MAAS during deployment.
@@ -257,7 +273,8 @@ The following MAAS storage layouts have not been tested yet:
 
 Contributions and testing reports for these layouts are welcome!
 
-## Project Structure
+<details>
+<summary><h2>Project Structure</h2></summary>
 
 ```
 MAAS-Proxmox/
@@ -286,9 +303,12 @@ MAAS-Proxmox/
         └── cleanup.sh                     # Image cleanup
 ```
 
+</details>
+
 ## Troubleshooting
 
-### Web UI not accessible after deployment
+<details>
+<summary><h3>Web UI not accessible after deployment</h3></summary>
 
 Check Proxmox services:
 ```bash
@@ -301,7 +321,10 @@ All should show `active (running)`. If not, check:
 - Hostname is set correctly: `hostnamectl`
 - Network bridge exists: `ip a show vmbr0`
 
-### Network not working / No vmbr0 bridge
+</details>
+
+<details>
+<summary><h3>Network not working / No vmbr0 bridge</h3></summary>
 
 Check network configuration:
 ```bash
@@ -316,7 +339,10 @@ systemctl status systemd-networkd  # Should be masked
 systemctl status networking         # Should be active
 ```
 
-### Cannot login via console
+</details>
+
+<details>
+<summary><h3>Cannot login via console</h3></summary>
 
 **Option 1**: SSH in using the default `debian` user and your MAAS SSH key:
 ```bash
@@ -340,7 +366,10 @@ Password: proxmox123
 
 Then switch to root: `sudo -i`
 
-### Build fails with "permission denied" on /dev/kvm
+</details>
+
+<details>
+<summary><h3>Build fails with "permission denied" on /dev/kvm</h3></summary>
 
 **For Docker builds:**
 ```bash
@@ -358,7 +387,10 @@ sudo usermod -a -G kvm $USER
 newgrp kvm
 ```
 
-### Docker build fails with FUSE errors
+</details>
+
+<details>
+<summary><h3>Docker build fails with FUSE errors</h3></summary>
 
 Ensure `/dev/fuse` device is available:
 ```bash
@@ -369,13 +401,19 @@ ls -l /dev/fuse
 sudo modprobe fuse
 ```
 
-### Image boots to EFI shell
+</details>
+
+<details>
+<summary><h3>Image boots to EFI shell</h3></summary>
 
 - Enable UEFI boot in BIOS/IPMI settings
 - Disable Secure Boot (Proxmox kernel is not signed)
 - Ensure MAAS deployed the image correctly
 
-### Bond shows NO-CARRIER or not working
+</details>
+
+<details>
+<summary><h3>Bond shows NO-CARRIER or not working</h3></summary>
 
 **For 802.3ad (LACP) bonds:**
 - LACP requires **both sides** to be configured (machine + switch/hypervisor)
@@ -392,24 +430,35 @@ sudo modprobe fuse
 2. Change mode from "802.3ad" to "active-backup"
 3. Redeploy machine
 
+</details>
+
 ## Advanced Configuration
 
-### Custom Hostname
+<details>
+<summary><h3>Custom Hostname</h3></summary>
 
 MAAS automatically sets the hostname based on the machine name in MAAS.
 
-### Custom Network Configuration
+</details>
+
+<details>
+<summary><h3>Custom Network Configuration</h3></summary>
 
 The curtin-hooks script automatically converts MAAS netplan configuration to `/etc/network/interfaces` format with vmbr0 bridge. Supports bonds, VLANs, static routes, and all MAAS network topologies (see **Network Configuration** section above).
 
 To customize network conversion logic, edit `debian/scripts/curtin-hooks` before building. Remember to sync changes to `debian/curtin/curtin-hooks` as well.
 
-### Cloud-init Configuration
+</details>
+
+<details>
+<summary><h3>Cloud-init Configuration</h3></summary>
 
 Proxmox-specific cloud-init configs are in `debian/ansible/proxmox.yml`:
 - Disables cloud-init network management
 - Configures /etc/hosts for Proxmox requirements
 - Sets up bootcmd to ensure correct hostname resolution
+
+</details>
 
 ## References
 
