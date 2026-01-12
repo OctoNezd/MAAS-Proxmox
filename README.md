@@ -173,13 +173,13 @@ If using network bonds (especially with only one physical cable connected):
 - Never use `0` - this disables link monitoring and the bond won't detect which interface is connected
 - Without link monitoring, the bond may try to use a disconnected interface, resulting in no network connectivity
 
-**💡 Recommended: Commission after deployment to sync vmbr0 to MAAS**
+**💡 Recommended: Enable hardware sync during deployment**
 
-After deploying Proxmox:
-- **Commission** the machine in MAAS to detect and sync hardware changes
-- This will detect the vmbr0 bridge created by Proxmox and add it to the MAAS interface list
+When deploying from MAAS:
+- **Enable "Sync hardware" option** during the deployment process
+- This will automatically sync the vmbr0 bridge created by Proxmox back to MAAS
 - Having vmbr0 visible in MAAS provides better visibility of the actual network configuration
-- Alternatively, enable periodic hardware sync for automatic updates
+- Shows the complete network topology (physical interfaces + bridge) in MAAS inventory
 
 ### Supported Network Topologies
 
