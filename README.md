@@ -8,14 +8,9 @@ Based on Debian 13 (Trixie) with cloud-init integration for seamless MAAS provis
 
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Network Configuration](#network-configuration)
-- [Storage Configuration](#storage-configuration)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [Advanced Configuration](#advanced-configuration)
+- [Deployment Guide](#deployment-guide)
+- [Advanced Topics](#advanced-topics)
 - [References](#references)
-- [License](#license)
-- [Contributing](#contributing)
 
 ## Prerequisites
 
@@ -119,100 +114,50 @@ sudo maas admin boot-resources create \
 
 Replace `admin` with your MAAS profile name.
 
-### 4. Deploy
+**Next**: See [Deployment Guide](#deployment-guide) for network configuration and deployment steps.
 
-1. MAAS web UI → Select machine → Deploy
-2. Choose "Proxmox VE 9.1"
-3. After deployment completes, SSH to the machine and set root password:
-   ```bash
-   ssh debian@<machine-ip>
-   sudo passwd root
-   # Or use a one-liner:
-   echo "root:proxmox" | sudo chpasswd
-   ```
-4. Access Proxmox web UI at `https://<machine-ip>:8006`
-5. Login: root@pam (use the password you just set)
+## Deployment Guide
 
-**Note**: The image does not include a default root password for security. You must set it via SSH after deployment to access the web UI.
+### Pre-Deployment Checklist
 
-**Requirements**:
-- UEFI boot enabled
-- SSH key configured in MAAS
-- Secure Boot disabled (or use signed kernels)
+**⚠️ CRITICAL: Configure these in MAAS BEFORE deploying:**
 
-## Network Configuration
-
-The curtin-hooks script automatically converts MAAS netplan configuration to Proxmox `/etc/network/interfaces` format during deployment. All network configurations are bridged via **vmbr0** for VM networking.
-
-### IMPORTANT: IP Assignment Configuration
-
-**⚠️ CRITICAL: Use "Auto assign" or "Static assign" - NOT "DHCP"**
-
-When configuring network interfaces in MAAS:
-
-- ✅ **Auto assign** (Recommended): MAAS picks an available static IP from the subnet pool during deployment and writes it permanently to `/etc/network/interfaces`. The machine never contacts a DHCP server - the IP is hardcoded.
-
-- ✅ **Static assign**: You manually specify the exact static IP address. Same as Auto assign but you choose the IP.
-
-- ❌ **DHCP**: The machine broadcasts DHCP requests at runtime. **This will NOT work** - the curtin-hooks script requires a static IP in the configuration (it looks for the `addresses` field which is only present with static IPs).
-
-**Why Proxmox needs static IPs:**
-- Hypervisors need stable, predictable IPs for management
-- VMs/containers need to reach the host at a known address
-- Cluster members need reliable communication
-- DHCP leases could potentially change after reboots
-
-**⚠️ Do NOT create bridges in MAAS**
-
-The curtin-hooks script automatically creates the **vmbr0** bridge during deployment. If you create a bridge in MAAS, you may encounter conflicts or unexpected behavior. Configure your interfaces (bonds, VLANs, ethernet) with static IPs, and let the deployment script create vmbr0.
-
-**⚠️ Bond Configuration: Enable Link Monitoring**
-
-If using network bonds (especially with only one physical cable connected):
-- Set **mii-monitor-interval** to `100` (or higher) - this monitors link status every 100ms
-- Never use `0` - this disables link monitoring and the bond won't detect which interface is connected
-- Without link monitoring, the bond may try to use a disconnected interface, resulting in no network connectivity
-
-**💡 Recommended: Enable hardware sync during deployment**
-
-When deploying from MAAS:
-- **Enable "Sync hardware" option** during the deployment process
-- This will automatically sync the vmbr0 bridge created by Proxmox back to MAAS
-- Having vmbr0 visible in MAAS provides better visibility of the actual network configuration
-- Shows the complete network topology (physical interfaces + bridge) in MAAS inventory
-
-### Supported Network Topologies
-
-The image supports all MAAS network configurations:
-
-**✅ Simple Ethernet**
-- Single interface with static IP
-- Automatic vmbr0 bridge creation
-
-**✅ Network Bonds**
-- **802.3ad (LACP)**: Requires switch/hypervisor LACP support
-- **active-backup**: Automatic failover (no switch config needed)
-- **balance-rr, balance-xor, balance-tlb, balance-alb**: All bonding modes supported
-- Configurable: miimon, lacp-rate, xmit-hash-policy
-
-**✅ VLANs**
-- Tagged VLAN interfaces (e.g., vlan.100, ens18.200)
-- VLAN on bonds supported
-- Automatic parent interface configuration
-
-**✅ Static Routes**
-- Custom routing with metrics
-- Multiple routes per interface
-- Automatic route configuration on vmbr0
-
-**✅ Bridges**
-- MAAS-created bridges automatically detected
-- Nested bridge configurations supported
+- ✅ **Network IP Mode**: Use "Auto assign" or "Static assign" - **NEVER "DHCP"** (curtin-hooks requires static IPs)
+- ✅ **Bond Link Monitoring**: If using bonds, set `mii-monitor-interval` to `100` (not `0`)
+- ✅ **No Bridges**: Do NOT create bridges in MAAS (vmbr0 is created automatically)
+- ✅ **BIOS Settings**: UEFI enabled, Secure Boot disabled
+- ✅ **MAAS Settings**: SSH key configured in MAAS
 
 <details>
-<summary><h3>Network Configuration Examples</h3></summary>
+<summary><h3>Why These Settings Matter</h3></summary>
 
-**Bond with active-backup** (recommended for virtual environments):
+**Auto-assign vs DHCP:**
+- **Auto-assign**: MAAS writes a permanent static IP to `/etc/network/interfaces` during deployment
+- **DHCP**: Machine requests IP at runtime - curtin-hooks can't detect this (no `addresses` field in config) and leaves network unconfigured
+
+**Bond link monitoring:**
+- `mii-monitor-interval: 0` disables link state detection
+- Bond can't detect which interface is connected, may use disconnected cable
+- Set to `100` (checks every 100ms) for reliable failover
+
+**Bridges:**
+- Curtin-hooks automatically creates vmbr0 bridge during deployment
+- Pre-existing MAAS bridges cause conflicts with Proxmox network configuration
+
+</details>
+
+### Network Configuration
+
+<details>
+<summary><h4>Supported Network Topologies</h4></summary>
+
+The curtin-hooks script automatically converts MAAS netplan to Proxmox `/etc/network/interfaces` format. All configurations are bridged via **vmbr0** for VM networking.
+
+**Supported:**
+- ✅ Simple Ethernet, Bonds (802.3ad LACP, active-backup, etc.)
+- ✅ VLANs, Static Routes, Nested Bridges
+
+**Bond with active-backup example** (recommended for virtual environments):
 ```
 auto ens18
 iface ens18 inet manual
@@ -237,7 +182,7 @@ iface vmbr0 inet static
     bridge-fd 0
 ```
 
-**VLAN configuration**:
+**VLAN example**:
 ```
 auto ens18
 iface ens18 inet manual
@@ -253,115 +198,54 @@ iface vmbr0 inet static
     bridge-ports vlan100
 ```
 
-**Priority order**: MAAS bridges → VLANs → Bonds → Ethernet
+</details>
 
-**Configuration**:
-- DNS and gateway from MAAS automatically applied
-- systemd-networkd disabled (uses ifupdown2)
-- All configurations bridge to vmbr0 for VM networking
+### Storage Configuration
+
+<details>
+<summary><h4>Tested Storage Layouts</h4></summary>
+
+| Layout | Best For | How to Configure |
+|--------|----------|------------------|
+| **Flat** (Default) | Most deployments | No configuration needed |
+| **LVM** | Flexibility, snapshots | `maas $PROFILE machine set-storage-layout $SYSTEM_ID storage_layout=lvm` |
+| **ZFS** | Production, data integrity, 16GB+ RAM | MAAS UI → Storage → Delete partitions → Add ZFS partition + EFI |
+
+All layouts use directory storage at `/var/lib/vz` for VMs/containers after deployment.
 
 </details>
 
-## Storage Configuration
+### Deploy
 
-The image supports multiple MAAS storage layouts. The curtin-hooks script automatically handles the storage configuration provided by MAAS during deployment.
+1. **MAAS UI** → Select machine → **Deploy**
+2. Choose **"Proxmox VE 9.1"** OS
+3. ✅ **Enable "Sync hardware"** checkbox (syncs vmbr0 bridge back to MAAS for visibility)
+4. Click **Deploy** (~10-15 minutes)
 
-### Tested Storage Layouts
-
-**✅ Flat Layout (Default)**
-- Single ext4 root partition spanning the entire boot disk
-- EFI System Partition (ESP) for UEFI boot
-- Simple, no overhead, recommended for most deployments
-- Proxmox uses directory storage at `/var/lib/vz` for VMs and containers
-
-**✅ LVM Layout**
-- Volume Group: `vgroot` on boot disk partition
-- Logical Volume: `lvroot` for root filesystem (ext4)
-- Provides flexibility for snapshots and resizing
-- Proxmox uses directory storage on the LVM root filesystem
-- Configure in MAAS before deployment:
-  ```bash
-  maas $PROFILE machine set-storage-layout $SYSTEM_ID storage_layout=lvm
-  ```
-
-**✅ ZFS Layout**
-- ZFS pool: `rpool` with `rpool/ROOT/zfsroot` dataset for root filesystem
-- Built-in compression enabled (saves disk space automatically)
-- Native snapshots, data integrity with checksumming
-- ARC caching improves read performance
-- Proxmox uses directory storage on ZFS root filesystem
-- Configure in MAAS Web UI:
-  1. Machine → Storage → Select boot disk
-  2. Delete existing partitions
-  3. Add partition → Filesystem: **zfsroot** → Mount point: **/**
-  4. Add EFI partition (512MB, FAT32, `/boot/efi`)
-
-### Storage Layout Comparison
-
-| Layout | Filesystem | Flexibility | Snapshots | VM Storage | Data Integrity | Best For |
-|--------|-----------|-------------|-----------|------------|----------------|----------|
-| **Flat** | ext4 on partition | Low | No | Directory on / | Basic | Simple deployments, maximum performance |
-| **LVM** | ext4 on LV | High | Yes (manual) | Directory on / | Basic | Advanced users, future flexibility |
-| **ZFS** | ZFS datasets | Very High | Yes (native) | Directory on / | Excellent (checksums) | Production systems, data integrity priority, 16GB+ RAM |
-
-### Storage After Deployment
-
-After deployment, Proxmox VE provides:
-- **local**: Directory storage at `/var/lib/vz` (ISOs, templates, backups, containers)
-- **local-lvm**: Not configured by default (can be added manually for LVM-thin storage)
-
-**Note**: The default MAAS LVM layout creates a single logical volume for the root filesystem. This differs from a standard Proxmox installation which creates separate LVs for root, data (thin pool), and swap. Both configurations work - Proxmox can store VMs on directory storage.
-
-<details>
-<summary><h4>Optional: Configure Proxmox ZFS Storage for VMs</h4></summary>
-
-If you deployed with ZFS root, you can create dedicated ZFS datasets for VM storage:
+### Post-Deployment
 
 ```bash
-# SSH to the deployed Proxmox machine
+# SSH to deployed machine
 ssh debian@<machine-ip>
-sudo -i
 
-# Create ZFS dataset for VM disks
-zfs create rpool/data
+# Set root password for Proxmox UI access
+echo "root:your-password" | sudo chpasswd
 
-# Optional: Create dataset for container templates
-zfs create rpool/data/subvol-templates
-
-# Add ZFS storage to Proxmox (will be available after next PVE service restart)
-# This happens automatically - Proxmox detects the rpool
-
-# Or manually add via pvesm:
-pvesm add zfspool local-zfs --pool rpool/data --content images,rootdir
+# Access Proxmox web UI
+# https://<machine-ip>:8006
+# Login: root@pam
 ```
 
-**Benefits:**
-- Native ZFS snapshots for VMs/containers
-- Compression saves disk space
-- Data integrity with checksumming
-- Clone VMs instantly with ZFS clones
-
-**Memory Requirements:**
-- Minimum: 8GB RAM
-- Recommended: 16GB+ RAM for production
-- ZFS ARC cache will use available memory
-
-</details>
-
-### Untested Storage Layouts
-
-The following MAAS storage layouts have not been tested yet:
-- **LVM-Thin**: MAAS doesn't have a built-in layout for thin provisioning. Possible workarounds:
-  - Use LVM layout, leave space unused, configure thin pool post-deployment
-  - Use multi-disk setup with second disk for thin pool
-- **Bcache**: SSD caching for HDD storage
-- **Software RAID** (0, 1, 5, 6, 10): RAID configurations
-- **Multiple disk configurations**: Complex multi-disk setups, ZFS RAID-Z
-
-Contributions and testing reports for these layouts are welcome!
+**Optional post-deployment tasks:**
+- Disable subscription nag: Edit `/etc/apt/sources.list.d/pve-enterprise.list`
+- Update packages: `apt update && apt upgrade`
+- Configure additional storage or join Proxmox cluster
 
 <details>
-<summary><h2>Project Structure</h2></summary>
+<summary><h2>Advanced Topics</h2></summary>
+
+<details>
+<summary><h3>Project Structure</h3></summary>
 
 ```
 MAAS-Proxmox/
@@ -392,172 +276,77 @@ MAAS-Proxmox/
 
 </details>
 
-## Troubleshooting
-
 <details>
-<summary><h3>Web UI not accessible after deployment</h3></summary>
+<summary><h3>Troubleshooting</h3></summary>
 
-Check Proxmox services:
+**Network not working / No vmbr0 bridge**
+
+Check if you used DHCP mode (most common cause):
+```bash
+# In MAAS, verify interface shows Auto-assign or Static, NOT DHCP
+# If DHCP: Release machine, change to Auto-assign, redeploy
+
+# On deployed machine, check configuration:
+cat /etc/network/interfaces  # Should show vmbr0 with IP
+ip -br a                     # Should show vmbr0 with IP
+```
+
+If using bonds, verify `bond-miimon` is not 0:
+```bash
+cat /etc/network/interfaces  # Look for "bond-miimon 100" (not 0)
+cat /proc/net/bonding/bond0  # Check bond status and active slave
+```
+
+**Web UI not accessible**
+
 ```bash
 ssh debian@<machine-ip>
-sudo systemctl status pve-cluster pveproxy pvedaemon
+sudo systemctl status pve-cluster pveproxy pvedaemon  # Should be active
+
+# Check hostname resolution
+cat /etc/hosts        # Should contain actual IP, not 127.0.1.1
+hostnamectl           # Verify hostname is set
 ```
 
-All should show `active (running)`. If not, check:
-- `/etc/hosts` contains actual IP (not 127.0.1.1)
-- Hostname is set correctly: `hostnamectl`
-- Network bridge exists: `ip a show vmbr0`
+**Cannot login via console**
 
-</details>
+SSH using MAAS key: `ssh debian@<machine-ip>` then `sudo -i`
 
-<details>
-<summary><h3>Network not working / No vmbr0 bridge</h3></summary>
+To enable debug console user, edit `debian/ansible/proxmox.yml` before building and uncomment debug user tasks (lines 105-123).
 
-Check network configuration:
+**Build failures**
+
+KVM permission denied:
 ```bash
-cat /etc/network/interfaces
-# Should show vmbr0 bridge with your IP
-
-ip -br a
-# Should show vmbr0 with IP address
-
-# Check for conflicting network managers
-systemctl status systemd-networkd  # Should be masked
-systemctl status networking         # Should be active
-```
-
-</details>
-
-<details>
-<summary><h3>Cannot login via console</h3></summary>
-
-**Option 1**: SSH in using the default `debian` user and your MAAS SSH key:
-```bash
-ssh debian@<machine-ip>
-sudo -i
-```
-
-**Option 2**: Enable debug user (optional)
-
-If you need console access without SSH keys (useful for debugging network issues), you can enable a debug user before building the image:
-
-1. Edit `debian/ansible/proxmox.yml`
-2. Uncomment the "Create debug user" and "Enable password authentication" tasks (lines 105-123)
-3. Rebuild the image
-
-Default credentials after enabling:
-```
-Username: debug
-Password: proxmox123
-```
-
-Then switch to root: `sudo -i`
-
-</details>
-
-<details>
-<summary><h3>Build fails with "permission denied" on /dev/kvm</h3></summary>
-
-**For Docker builds:**
-```bash
-# Ensure KVM_GID is set correctly
 export KVM_GID=$(getent group kvm | cut -d: -f3)
 sudo -E docker compose up
-
-# Verify KVM device is accessible
-ls -l /dev/kvm
 ```
 
-**For manual builds:**
-```bash
-sudo usermod -a -G kvm $USER
-newgrp kvm
-```
+FUSE errors: `sudo modprobe fuse`
+
+**Boots to EFI shell**
+
+Enable UEFI boot and disable Secure Boot in BIOS/IPMI.
 
 </details>
 
 <details>
-<summary><h3>Docker build fails with FUSE errors</h3></summary>
+<summary><h3>Custom Configuration</h3></summary>
 
-Ensure `/dev/fuse` device is available:
-```bash
-ls -l /dev/fuse
-# Should show: crw-rw-rw- 1 root root 10, 229
+**Hostname:** Set by MAAS machine name automatically
 
-# If missing, load the fuse module
-sudo modprobe fuse
-```
+**Network conversion logic:** Edit `debian/scripts/curtin-hooks` and `debian/curtin/curtin-hooks` before building
+
+**Cloud-init config:** See `debian/ansible/proxmox.yml` for Proxmox-specific settings
 
 </details>
-
-<details>
-<summary><h3>Image boots to EFI shell</h3></summary>
-
-- Enable UEFI boot in BIOS/IPMI settings
-- Disable Secure Boot (Proxmox kernel is not signed)
-- Ensure MAAS deployed the image correctly
-
-</details>
-
-<details>
-<summary><h3>Bond shows NO-CARRIER or not working</h3></summary>
-
-**For 802.3ad (LACP) bonds:**
-- LACP requires **both sides** to be configured (machine + switch/hypervisor)
-- If deploying VMs in Proxmox/VMware, the hypervisor must also have LACP configured
-- **Solution**: Use **active-backup** mode instead (works without switch configuration)
-
-**For active-backup bonds:**
-- Check `ip a` - bond0 should show one interface as ACTIVE
-- Check `cat /proc/net/bonding/bond0` for bond status
-- Verify both slave interfaces are UP: `ip link show ens18 ens19`
-
-**To change bond mode in MAAS:**
-1. MAAS web UI → Machine → Network → Edit bond
-2. Change mode from "802.3ad" to "active-backup"
-3. Redeploy machine
-
-</details>
-
-## Advanced Configuration
-
-<details>
-<summary><h3>Custom Hostname</h3></summary>
-
-MAAS automatically sets the hostname based on the machine name in MAAS.
-
-</details>
-
-<details>
-<summary><h3>Custom Network Configuration</h3></summary>
-
-The curtin-hooks script automatically converts MAAS netplan configuration to `/etc/network/interfaces` format with vmbr0 bridge. Supports bonds, VLANs, static routes, and all MAAS network topologies (see **Network Configuration** section above).
-
-To customize network conversion logic, edit `debian/scripts/curtin-hooks` before building. Remember to sync changes to `debian/curtin/curtin-hooks` as well.
-
-</details>
-
-<details>
-<summary><h3>Cloud-init Configuration</h3></summary>
-
-Proxmox-specific cloud-init configs are in `debian/ansible/proxmox.yml`:
-- Disables cloud-init network management
-- Configures /etc/hosts for Proxmox requirements
-- Sets up bootcmd to ensure correct hostname resolution
 
 </details>
 
 ## References
 
-- [Canonical packer-maas](https://github.com/canonical/packer-maas) - Original upstream repository
+- [Canonical packer-maas](https://github.com/canonical/packer-maas) - Original upstream (AGPL-3.0)
 - [MAAS Documentation](https://maas.io/docs)
 - [Proxmox VE Documentation](https://pve.proxmox.com/pve-docs/)
-- [Debian 13 Trixie](https://www.debian.org/releases/trixie/)
 
-## License
-
-This project uses configuration from Canonical's packer-maas repository (AGPL-3.0).
-
-## Contributing
-
-Contributions welcome! Please submit pull requests or open issues for bugs and feature requests.
+Contributions welcome! Submit PRs or open issues at [github.com/luis15pt/MAAS-Proxmox](https://github.com/luis15pt/MAAS-Proxmox)
