@@ -93,7 +93,7 @@ build {
 
   # Install Proxmox VE using Ansible
   provisioner "ansible-local" {
-    playbook_file = "${path.root}/ansible/proxmox.yml"
+    playbook_file   = "${path.root}/ansible/proxmox.yml"
     extra_arguments = ["--extra-vars", "ansible_python_interpreter=/usr/bin/python3"]
   }
 
@@ -107,7 +107,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    sources     = ["${path.root}/scripts/curtin-hooks"]
+    sources     = ["${path.root}/curtin/curtin-hooks"]
   }
 
   provisioner "shell" {

@@ -42,7 +42,8 @@ The easiest way to build the image is using Docker, which handles all dependenci
 # Clone the repository
 git clone https://github.com/luis15pt/MAAS-Proxmox.git
 cd MAAS-Proxmox
-
+# OPTIONAL: Set preferred VLAN in debian/curtin/curtin-hooks
+# nano debian/curtin/curtin-hooks
 # Set KVM group ID for your system
 export KVM_GID=$(getent group kvm | cut -d: -f3)
 
@@ -110,6 +111,7 @@ sudo maas admin boot-resources create \
   architecture='amd64/generic' \
   filetype='tgz' \
   content@=/home/ubuntu/proxmox-ve-13-cloudimg.tar.gz
+  title='ProxMoxVE91'
 ```
 
 Replace `admin` with your MAAS profile name.
