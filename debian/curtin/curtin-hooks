@@ -98,7 +98,6 @@ def configure_proxmox_network(config, target):
             ip_address = None
         else:
             ip_address = bond_cfg['addresses'][0]
-        ip_address = bond_cfg['addresses'][0]
         gateway = bond_cfg.get('gateway4') or bond_cfg.get('gateway')
         nameservers = bond_cfg.get('nameservers', {})
         if len(nameservers) > 0:
@@ -374,7 +373,6 @@ def main():
             f.write("deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware\n")
             f.write("deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware\n")
             f.write("deb http://download.proxmox.com/debian/pve trixie pve-no-subscription\n")
-
     # CRITICAL FIX: Use {'install': False} to disable kernel installation
     # Setting kernel=None causes AttributeError in curtin's install_kernel() at line 377
     # According to curtin source, install_kernel() checks for kernel: {install: false}
